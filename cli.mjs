@@ -68,7 +68,7 @@ function printHelp() {
   --seller <id>       ストアIDで絞る（旧CLIのストア巡回相当）
   --category <名,名>  買取マスターのカテゴリ（--mode reverse）
   --min-buyback <円>  reverseで対象にする最低買取価格
-  --price-from/--price-to <円>  価格帯の切り詰め
+  --price-from/--price-to <円>  価格帯の切り詰め（ジャンル巡回の下限は既定 10000。0 で全価格帯）
   --deep <m>          商品ページの確定値取得 phi|anon|off（既定 off）
   --deep-limit <n>    確定値を取る上限件数（既定 120）
   --reverse-limit <n> 逆引きJAN検索の上限件数（既定 300、最大 2000）
@@ -139,7 +139,8 @@ async function main() {
       presets: args.presets,
       keyword: args.keyword,
       sellerId: args.sellerId,
-      priceFrom: args.priceFrom,
+      // ジャンル巡回は1万円未満に付属品が多く時間だけかかるため、既定で1万円以上に絞る
+      priceFrom: args.priceFrom ?? (args.mode === 'genre' ? 10000 : null),
       priceTo: args.priceTo,
       masterCategories: args.masterCategories,
       minBuyback: args.minBuyback,
