@@ -1,0 +1,16 @@
+{
+  "name": "yahoo-store-profit-finder",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node server.mjs",
+    "scan": "node cli.mjs",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "vitest": "5.0.1"
+  }
+}

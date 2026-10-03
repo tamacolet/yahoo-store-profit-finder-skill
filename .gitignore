@@ -1,5 +1,5 @@
-# Secrets / session state
-*.json
+# Scan data / cache / session state
+data/
 *.state
 *.storage
 

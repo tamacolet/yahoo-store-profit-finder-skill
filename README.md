@@ -1,57 +1,63 @@
-# yahoo-store-profit-finder
+# Yahoo!ショッピング 利益商品発掘ツール
 
-Yahooショッピングの任意ストアを対象に、HTMLから以下を取得します。
+Yahoo!ショッピングで「ポイント込みの実質価格 < 買取価格」となる商品（= 買って転売・買取に出せば利益が出る商品）を自動で探し、ブラウザのダッシュボードで一覧できるツールです。
 
-- 価格
-- ポイント
-- 実質価格（価格 - ポイント）
-- JAN
-
-その後、`https://www.morimori-kaitori.jp/search?sk=...` で照合し、利益商品を抽出します。
-
-## 実行例
+## 起動方法
 
 ```bash
-pnpm exec node /Users/t/.claude/skills/yahoo-store-profit-finder/scripts/yahoo-store-profit-scan.mjs \
-  --store yamada-denki \
-  --keyword "WF-1000XM5" \
-  --pages 1 \
-  --max-items 20 \
-  --mode normal \
-  --min-profit 0 \
-  --json /tmp/yahoo-profit.json
+pnpm install
+pnpm start
 ```
 
-## 主要引数
+→ http://127.0.0.1:4173 をブラウザで開く。
 
-- `--store` (必須): YahooストアID
-- `--keyword`: ストア内検索キーワード
-- `--pages`: 取得ページ数
-- `--max-items`: 詳細取得する最大件数
-- `--mode`: `normal` / `yutori` / `deposit`
-- `--min-profit`: 利益しきい値（円）
-- `--json`: JSON保存先
-- `--storage-state`: Playwrightで作成したログイン状態JSON
-- `--point-source`: `total` / `with-entry`
+## 必要なもの
 
-## ログイン後ポイントで取得する手順（Playwright）
+- **YAHOO_CLIENT_ID**（環境変数）: Yahoo!デベロッパーネットワークの Client ID。未設定でもサーバーは起動しますがスキャンはできません（画面のステータス表示で確認できます）。
+- **Phi に Yahoo! / hikaku ログイン**:
+  - Yahoo!ログイン（LYPプレミアム推奨）… Phi の `Default` プロファイルでログインします。別プロファイルを使う場合は `YAHOO_PHI_PROFILE` を設定します（`--deep phi`）。
+  - hikaku（https://hikaku-342505.firebaseapp.com/search/）へのログイン … 買取価格・買取マスターの取得に必要です。
 
-1. Yahooに手動ログインして state を保存
+## 画面の使い方
+
+1. プリセット（スマホ・タブレット等）を選ぶ、またはキーワード／ストアID、買取カテゴリを指定
+2. スキャン開始 → 進捗と結果がSSEでリアルタイムに流れます
+3. 結果はランク・確度・利益順に並び、各商品のリスク表示つき。色違い等の同一ストア・JAN・価格は1行にまとめます
+
+CLI からも実行できます（進捗は stderr、結果は stdout）:
 
 ```bash
-pnpm exec node /Users/t/.claude/skills/yahoo-store-profit-finder/scripts/yahoo-login-save-state.mjs \
-  --out /tmp/yahoo-shopping-state.json
+node cli.mjs --preset smartphone,tablet --deep phi --deep-limit 40
+node cli.mjs --mode keyword --keyword "iPhone" --seller ebest
+node cli.mjs --mode reverse --category スマートフォン --min-buyback 20000 --reverse-limit 300
 ```
 
-2. 保存した state を使ってスキャン
+## ランクの意味
 
-```bash
-pnpm exec node /Users/t/.claude/skills/yahoo-store-profit-finder/scripts/yahoo-store-profit-scan.mjs \
-  --store yamada-denki \
-  --pages 2 \
-  --max-items 40 \
-  --mode normal \
-  --point-source with-entry \
-  --storage-state /tmp/yahoo-shopping-state.json \
-  --json /tmp/yahoo-profit-login.json
-```
+| ランク | 意味 |
+|--------|------|
+| A | 確実に付くポイントだけで黒字（誰でも利益） |
+| B | 全キャンペーンエントリー込みの最大ポイントなら黒字（条件付き） |
+| C | 赤字 |
+| - | 買取価格が不明で判定不可 |
+
+リスク表示には中古・整備品（再生新品、新古品、Bランク等の表記、本体のみ、アウトレット、箱不良なども含む）、キャリア版、海外版、利用制限△、送料別の可能性、型番照合、買取価格が古いなどがあります。確度は型番照合や状態リスクで low、JAN一致でもキャリア・海外版・利用制限△等は mid、それ以外のJAN一致は high です。
+
+## 実測の注意点
+
+- 検索APIのポイントは**概算**です。確定値は商品ページの `__NEXT_DATA__` を取る `--deep` で判明します。Phi 経由でも未ログインなら `page-anon` と記録し、警告を出します。
+- 送料が判明した場合は実質価格に加算します。不明で送料無料と確認できない場合はリスクを付けます。
+- 商品ページの連続取得は中身が欠けることがあるため、1件ごとに1.2秒空けています。deep の上限件数を増やすと時間がかかります。
+- 買取価格は hikaku 11店の最高値で、30日より古い値は使いません。7日より古い値しか無い場合は「買取価格が古い」のリスクが付きます。
+- 出品の約25%はJAN未入力のため、商品名の型番で買取マスターと照合します（`型番照合（要確認）`が付いたものは別モデルの可能性があるので確認してください）。
+- 型番照合では商品名と買取マスター名に記憶容量の表記があれば、共通の容量がない組み合わせを除外します。逆引きは買取価格の高いJANから既定300件（最大2000件）を検索し、APIの待機間隔を守ります。
+- 検索APIは1ジャンル先頭950件までしか取れないため、価格帯を自動で二分割して取りこぼしを防いでいます。
+
+## 構成
+
+- `server.mjs` — ローカルWebサーバー（node:http のみ）
+- `cli.mjs` — 無人実行CLI
+- `lib/` — 検索・照合・買取・判定・保存の各モジュール
+- `public/` — ダッシュボード画面
+- `data/scans/` — スキャン結果（直近5件と差分比較）
+- `data/cache/buyback.json` — 買取価格の3時間キャッシュ

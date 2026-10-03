@@ -1,0 +1,228 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>ヤフショ利益商品発掘 | Yahoo Profit Radar</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600;700&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <div class="radar" id="radar" aria-hidden="true">
+        <span class="radar-sweep"></span>
+        <span class="radar-blip b1"></span>
+        <span class="radar-blip b2"></span>
+      </div>
+      <div class="brand-text">
+        <div class="brand-title">YAHOO PROFIT RADAR</div>
+        <div class="brand-sub">ヤフショ利益商品発掘</div>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <div class="status-pills" id="statusPills" aria-label="接続状態">
+        <span class="pill" id="pillYahoo" tabindex="0"><i class="dot"></i>Yahoo API</span>
+        <span class="pill" id="pillPhi" tabindex="0"><i class="dot"></i><span class="pill-txt">Yahoo!ログイン: 未確認</span></span>
+        <span class="pill" id="pillBuyback" tabindex="0"><i class="dot"></i>買取トークン</span>
+      </div>
+      <button type="button" class="btn ghost" id="historyBtn">履歴</button>
+    </div>
+  </header>
+
+  <main class="layout">
+    <aside class="panel settings" id="settingsPanel">
+      <div class="settings-head">
+        <h2>スキャン設定</h2>
+        <button type="button" class="settings-toggle" id="settingsToggle" aria-expanded="true">開閉</button>
+      </div>
+      <div class="settings-body" id="settingsBody">
+        <div class="segment" role="group" aria-label="スキャンモード">
+          <button type="button" class="seg-btn active" data-mode="genre">ジャンル巡回</button>
+          <button type="button" class="seg-btn" data-mode="keyword">キーワード・ストア</button>
+          <button type="button" class="seg-btn" data-mode="reverse">買取表から逆引き</button>
+        </div>
+
+        <section class="mode-pane" data-mode="genre">
+          <div class="field-label">ジャンルプリセット <button type="button" class="mini-btn" id="presetAllBtn">すべて</button></div>
+          <div class="chips" id="presetChips"><span class="chips-loading">読み込み中…</span></div>
+        </section>
+
+        <section class="mode-pane hidden" data-mode="keyword">
+          <label class="field">
+            <span class="field-label">キーワード</span>
+            <input type="text" id="kwInput" placeholder="例: iPhone 17 Pro" autocomplete="off">
+          </label>
+          <label class="field">
+            <span class="field-label">ストアID</span>
+            <input type="text" id="sellerInput" placeholder="例: ebest" autocomplete="off">
+          </label>
+          <div class="field-label">ジャンルで絞る（任意）</div>
+          <div class="chips" id="presetChipsKw"></div>
+        </section>
+
+        <section class="mode-pane hidden" data-mode="reverse">
+          <p class="field-note">買取価格が高い商品から順に、Yahoo!ショッピング全店の最安値を調べます。</p>
+          <div class="field-label">買取マスターのカテゴリ</div>
+          <div class="chips" id="masterChips"><span class="chips-loading">読み込み中…</span></div>
+          <label class="field">
+            <span class="field-label">買取価格の下限（円）</span>
+            <input type="number" id="minBuybackInput" value="20000" min="0" step="1000" inputmode="numeric">
+          </label>
+          <label class="field">
+            <span class="field-label">調べるJANの数 <b class="num" id="reverseLimitVal">300</b> 件</span>
+            <input type="range" id="reverseLimitInput" min="50" max="2000" step="50" value="300">
+          </label>
+        </section>
+
+        <div class="divider"></div>
+
+        <div class="field-row">
+          <label class="field">
+            <span class="field-label">価格 下限（円）</span>
+            <input type="number" id="priceFromInput" placeholder="0" min="0" step="1000" inputmode="numeric">
+          </label>
+          <label class="field">
+            <span class="field-label">価格 上限（円）</span>
+            <input type="number" id="priceToInput" placeholder="上限なし" min="0" step="1000" inputmode="numeric">
+          </label>
+        </div>
+
+        <label class="switch-row">
+          <span class="switch"><input type="checkbox" id="deepToggle" checked><i></i></span>
+          <span>商品ページでポイントを確認</span>
+        </label>
+
+        <details class="details" id="advDetails">
+          <summary>詳細設定</summary>
+          <label class="field">
+            <span class="field-label">確認の方法</span>
+            <select id="deepModeSel">
+              <option value="phi" selected>ログイン中（Phi）— 最も正確</option>
+              <option value="anon">未ログイン — 速いが精度低め</option>
+              <option value="off">確認しない</option>
+            </select>
+          </label>
+          <label class="field">
+            <span class="field-label">確認する件数 <b class="num" id="deepLimitVal">120</b> 件</span>
+            <input type="range" id="deepLimitInput" min="20" max="200" step="10" value="120">
+          </label>
+        </details>
+
+        <button type="button" class="btn primary big" id="scanBtn">スキャン開始</button>
+        <p class="estimate" id="estimateNote"></p>
+      </div>
+    </aside>
+
+    <section class="results">
+      <div class="kpis" id="kpis">
+        <div class="kpi panel"><div class="kpi-label">巡回した出品数</div><div class="kpi-val num" id="kpiListings">0</div></div>
+        <div class="kpi panel"><div class="kpi-label">買取照合</div><div class="kpi-val num" id="kpiMatched">0</div><div class="kpi-sub">うち型番 <span class="num" id="kpiMatchedModel">0</span></div></div>
+        <div class="kpi panel"><div class="kpi-label">Aランク</div><div class="kpi-val num rank-a" id="kpiA">0</div></div>
+        <div class="kpi panel"><div class="kpi-label">Bランク</div><div class="kpi-val num rank-b" id="kpiB">0</div></div>
+        <div class="kpi panel"><div class="kpi-label">最高利益</div><div class="kpi-val num" id="kpiBest">—</div></div>
+        <div class="kpi panel"><div class="kpi-label">商品ページ確認</div><div class="kpi-val num" id="kpiDeep">0</div></div>
+      </div>
+
+      <div class="panel progress-panel" id="progressPanel" hidden>
+        <ol class="steps" id="steps">
+          <li class="step" data-stage="search"><i></i>収集</li>
+          <li class="step" data-stage="match"><i></i>照合</li>
+          <li class="step" data-stage="buyback"><i></i>買取</li>
+          <li class="step" data-stage="deep"><i></i>商品ページで確認</li>
+          <li class="step" data-stage="save"><i></i>保存</li>
+        </ol>
+        <div class="pbar"><div class="pbar-fill" id="pbarFill"></div></div>
+        <div class="pmsg" id="pmsg">待機中</div>
+      </div>
+
+      <div class="warn-band" id="warnBand" role="alert" hidden>
+        <div class="warn-band-body">
+          <strong>ポイントが正しく計算されていない可能性があります</strong>
+          <span id="warnBandText">PhiのDefaultプロファイルでYahoo!にログインすると、ポイントが正しく計算されます。</span>
+        </div>
+        <button type="button" class="warn-band-close" id="warnBandClose" aria-label="閉じる">×</button>
+      </div>
+
+      <section class="highlights" id="highlightSec">
+        <h3 class="sec-title">注目の利益商品</h3>
+        <div class="hl-row" id="hlRow"></div>
+        <p class="hl-empty" id="hlEmpty" hidden>まだ黒字候補はありません。下の「惜しい」で、黒字に近い商品を確認できます。</p>
+      </section>
+
+      <div class="panel results-panel">
+        <div class="filter-bar" id="filterBar">
+          <div class="seg-mini" role="group" aria-label="ランク絞り込み">
+            <button type="button" class="seg-btn active" data-rank="all">全部</button>
+            <button type="button" class="seg-btn" data-rank="A">A</button>
+            <button type="button" class="seg-btn" data-rank="B">B</button>
+            <button type="button" class="seg-btn" data-rank="C">C</button>
+            <button type="button" class="seg-btn" data-rank="-">−</button>
+            <button type="button" class="seg-btn" data-rank="near">惜しい</button>
+          </div>
+          <label class="f-item"><span>最低利益</span><input type="number" id="fMinProfit" placeholder="0" step="1000" inputmode="numeric"><span>円</span></label>
+          <label class="f-item"><span>差し引く経費</span><input type="number" id="fExpense" placeholder="0" min="0" step="100" inputmode="numeric"><span>円/件</span></label>
+          <label class="f-check"><input type="checkbox" id="fHighOnly" checked><span>確度が高いものだけ</span></label>
+          <label class="f-check"><input type="checkbox" id="fHideRisk"><span>リスクありを隠す</span></label>
+          <label class="f-check"><input type="checkbox" id="fHideCarrier"><span>キャリア版を隠す</span></label>
+          <label class="f-item grow"><span>検索</span><input type="search" id="fQuery" placeholder="商品名・ストア・JAN" autocomplete="off"></label>
+          <button type="button" class="btn ghost mini" id="csvBtn">CSV書き出し</button>
+          <span class="f-count num" id="fCount"></span>
+        </div>
+
+        <div class="table-wrap" id="tableWrap">
+          <table class="rtable">
+            <thead>
+              <tr>
+                <th class="c-img"></th>
+                <th class="c-name sortable" data-sort="name">商品</th>
+                <th class="c-rank sortable" data-sort="rank">ランク</th>
+                <th class="c-profit sortable" data-sort="profit">利益</th>
+                <th class="c-rate sortable" data-sort="rate">利益率</th>
+                <th class="c-eff sortable" data-sort="effective">実質</th>
+                <th class="c-price sortable" data-sort="price">Yahoo価格</th>
+                <th class="c-point">ポイント</th>
+                <th class="c-buy sortable" data-sort="buyback">買取最高値</th>
+                <th class="c-badges">バッジ</th>
+                <th class="c-ops">操作</th>
+              </tr>
+            </thead>
+            <tbody id="tbody"></tbody>
+          </table>
+          <div class="table-empty" id="tableEmpty" hidden></div>
+        </div>
+
+        <div class="cards" id="cardList"></div>
+
+        <div class="more-row">
+          <button type="button" class="btn ghost" id="moreBtn" hidden>さらに表示</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div class="drawer-backdrop" id="drawerBackdrop" hidden></div>
+  <aside class="drawer" id="historyDrawer" role="dialog" aria-modal="true" aria-label="スキャン履歴" hidden>
+    <div class="drawer-head">
+      <h2>スキャン履歴</h2>
+      <button type="button" class="btn ghost" id="drawerClose">閉じる</button>
+    </div>
+    <div class="drawer-body" id="historyList"><p class="chips-loading">読み込み中…</p></div>
+  </aside>
+  <aside class="drawer drawer-detail" id="itemDrawer" role="dialog" aria-modal="true" aria-label="商品の詳細" hidden>
+    <div class="drawer-head">
+      <h2>商品の詳細</h2>
+      <button type="button" class="btn ghost" id="itemDrawerClose">閉じる</button>
+    </div>
+    <div class="drawer-body drawer-detail-body" id="itemDetail"></div>
+  </aside>
+
+  <div class="tooltip" id="tooltip" hidden></div>
+  <div class="toast-host" id="toastHost" aria-live="polite"></div>
+
+  <script type="module" src="./app.js"></script>
+</body>
+</html>
