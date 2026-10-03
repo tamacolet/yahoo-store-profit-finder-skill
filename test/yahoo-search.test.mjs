@@ -119,6 +119,9 @@ describe('splitBand', () => {
   it('これ以上割れない帯はそのまま返す', () => {
     expect(splitBand([100, 101], MAX_REACHABLE + 1)).toEqual([[100, 101]])
   })
+  it('件数が多すぎる帯は割らない（巨大ジャンルで何時間もかかるのを防ぐ）', () => {
+    expect(splitBand([10000, 20000], 179345)).toEqual([[10000, 20000]])
+  })
 })
 
 describe('適応待機', () => {

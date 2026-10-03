@@ -192,7 +192,8 @@ function updateEstimate() {
   let base;
   if (state.mode === 'genre') {
     const n = Math.max(1, state.selectedPresets.size);
-    base = `ジャンル${state.selectedPresets.size || 1}つで約${2 * n}〜${4 * n}分`;
+    // 実測: スマホ1ジャンル（1万円以上・約5千件）で約8分半。出品の多いジャンルはさらにかかる
+    base = `ジャンル${state.selectedPresets.size || 1}つで約${5 * n}〜${20 * n}分（出品数による）`;
   } else if (state.mode === 'keyword') {
     base = '検索は件数次第で約1〜5分';
   } else {
