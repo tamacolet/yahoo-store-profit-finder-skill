@@ -106,9 +106,11 @@ function setSummary(summary = {}) {
   renderPills(); renderWarning();
 }
 function renderWarning() {
-  const show = state.warnings.length || (state.loginState === 'anon' && (state.stats.deepChecked || state.deepResult));
-  $('#warnBand').hidden = !show;
-  $('#warnBandText').textContent = ['PhiのDefaultプロファイルでYahoo!にログインすると、ポイントが正しく計算されます。', ...state.warnings].join(' ');
+  const anon = state.loginState === 'anon' && (state.stats.deepChecked || state.deepResult);
+  // ログインの案内は未ログインの時だけ出す（収集打ち切りなど別の警告と混ぜない）
+  const texts = [...(anon ? ['PhiのDefaultプロファイルでYahoo!にログインすると、ポイントが正しく計算されます。'] : []), ...state.warnings];
+  $('#warnBand').hidden = texts.length === 0;
+  $('#warnBandText').textContent = [...new Set(texts)].join(' ');
 }
 async function refreshStatus() {
   try {

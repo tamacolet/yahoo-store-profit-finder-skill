@@ -295,6 +295,17 @@ describe('追加のスキャン判定', () => {
     expect(item.campaigns[0].conditional).toBe(true)
   })
 
+  it('収集が途中で止まっても、集めた分で判定して警告を残す', async () => {
+    const events = []
+    const deps = makeDeps()
+    deps.search.collect = async () => ({ items: [HIT1, HIT2], error: 'リトライ上限。最後のエラー: HTTP 429' })
+    const doc = await runScan({ ...baseParams }, { deps, onEvent: (ev) => events.push(ev) })
+    expect(doc.status).toBe('done')
+    expect(doc.summary.listings).toBe(2)
+    expect(doc.summary.warnings[0]).toContain('途中で打ち切りました')
+    expect(events.filter((ev) => ev.type === 'warning')).toHaveLength(1)
+  })
+
   it('Phiで匿名ページならwarningを1回流す', async () => {
     const events = []
     const deps = makeDeps({ hits: [HIT1, HIT2], pages: { [HIT1.url]: { basePrice: 9000, totalPoint: 100 } } })
