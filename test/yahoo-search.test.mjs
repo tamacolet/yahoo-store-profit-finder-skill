@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import {
   buildSearchUrl,
   normalizeHit,
@@ -6,8 +6,10 @@ import {
   adaptDelay,
   shouldRetry,
   backoffMs,
+  retryWaitMs,
   keyOf,
   MAX_REACHABLE,
+  createSearchClient,
 } from '../lib/yahoo-search.mjs'
 
 describe('buildSearchUrl', () => {
@@ -139,5 +141,33 @@ describe('適応待機', () => {
     expect(shouldRetry(404)).toBe(false)
     expect(backoffMs(0)).toBe(2000)
     expect(backoffMs(2)).toBe(8000)
+  })
+  it('429は小刻みに送り直さず60秒待つ。500系は倍々で待つ', () => {
+    expect(retryWaitMs(429, 0)).toBe(60000)
+    expect(retryWaitMs(429, 3)).toBe(60000)
+    expect(retryWaitMs(503, 1)).toBe(4000)
+  })
+  it('60秒以内には再送せず、制限が続けばさらに60秒待って回復する', async () => {
+    vi.useFakeTimers()
+    try {
+      const fetchImpl = vi.fn()
+        .mockResolvedValueOnce({ ok: false, status: 429 })
+        .mockResolvedValueOnce({ ok: false, status: 429 })
+        .mockResolvedValueOnce({ ok: true, json: async () => ({ hits: [] }) })
+      const client = createSearchClient({ appid: 'TEST', fetchImpl })
+      const result = client.byJan('4900000000001')
+      await vi.advanceTimersByTimeAsync(59999)
+      expect(fetchImpl).toHaveBeenCalledTimes(1)
+      await vi.advanceTimersByTimeAsync(1)
+      expect(fetchImpl).toHaveBeenCalledTimes(2)
+      await vi.advanceTimersByTimeAsync(59999)
+      expect(fetchImpl).toHaveBeenCalledTimes(2)
+      await vi.advanceTimersByTimeAsync(1)
+      await expect(result).resolves.toEqual([])
+      expect(fetchImpl).toHaveBeenCalledTimes(3)
+      expect(client.stats.rateLimitHits).toBe(2)
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })
